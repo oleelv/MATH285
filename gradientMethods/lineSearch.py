@@ -7,7 +7,7 @@ def _backtracking(f, xk, dk, c, tau):
     Parameters:
     f (function)        : cost functional
     xk (np.array)       : iterate k
-    dk (np.array)       : (negative of) search direction
+    dk (np.array)       : search direction
     c (double)          : constant in Armijo rule
     tau (double)        : reduction parameter in backtracing
 
@@ -16,16 +16,18 @@ def _backtracking(f, xk, dk, c, tau):
     """
     alpha = 1
 
-    while f(xk - alpha*dk) > f(xk) - c*alpha*dk.dot(dk):
+    gk = - dk
+    
+    while f(xk + alpha*dk) > f(xk) + c*alpha*dk.dot(gk):
         alpha = tau*alpha
-
-    print(alpha)
+  
+    print('The value of alpha is:', alpha)
     return alpha
 
 
 def minimize (f, grad_f, dim=1, x_init=None, c=1, tau=.5, TOL=1e-6, rel_conv=True, MAX_ITER=100):
     """
-    Minimizes the quadratic problem ||Ax - b||^2 using steepest descent
+    Minimizes f(x) using gradient descent with backtracking line search
 
     Parameters:
     f (function)        : cost functional
@@ -53,7 +55,26 @@ def minimize (f, grad_f, dim=1, x_init=None, c=1, tau=.5, TOL=1e-6, rel_conv=Tru
     x = x_init
 
     while (d > TOL and k < MAX_ITER):
+        xp = x
 
-        #Write your code here
+        #Compute grad f(x)
+        gk = grad_f(xp)
+        
+        #Search direction
+        dk = - gk
+        
+        #Find inexact step length
+        ak = _backtracking(f, xp, dk, c, tau)
+
+        #Update xk
+        x = xp + ak*dk
+        xks.append(x)
+        
+        #Update change
+        if rel_conv and k > 0:
+            d = np.linalg.norm(x - xp) / np.linalg.norm(xp)
+        else:
+            d = np.linalg.norm(x - xp)
+        k = k+1
 
     return xks
