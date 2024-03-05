@@ -46,17 +46,17 @@ class ann:
         """
         
         # Initialize the weights and biases with random numbers and store in the dict params. 
-        self.params = {"W1": np.random.random((self.hidden_layers[0], num_input_features))}
+        self.params = {"W1": np.random.random((num_input_features, self.hidden_layers[0]))}
         self.params["b1"] = np.random.random((self.hidden_layers[0],1))
         self.input_size = num_input_features
       
         for l in range(1, self.num_layers):
-            self.params["W" + str(l+1)] = np.random.random((self.hidden_layers[l],
-                                                            self.hidden_layers[l-1]))
+            self.params["W" + str(l+1)] = np.random.random((self.hidden_layers[l-1],
+                                                            self.hidden_layers[l]))
             self.params["b" + str(l+1)] = np.random.random((self.hidden_layers[l],1))
 
         self.params["W" + str(self.num_layers+1)] = np.random.random((
-            1, self.hidden_layers[self.num_layers-1]))
+            self.hidden_layers[self.num_layers-1], 1))
         self.params["b" + str(self.num_layers+1)] = np.random.random((1,1))
 
         self.activation = act_fcn(activation)
@@ -100,7 +100,8 @@ class ann:
         
         return gradients
         
-    def fit(self, X, Y, learning_rate=0.001, epochs=1000, quiet=False):
+    def fit(self, X, Y, X_val=None, Y_val=None, optimizer='gradientDescent', 
+    		learning_rate=0.001, beta=None, epochs=1000, quiet=False):
         """
         Train the neural network
         
@@ -121,6 +122,9 @@ class ann:
         self.costs = []
         self.X = X
         self.Y = Y
+        self.method = optimizer
+        self.optimizer = optimization(self.method)
+
         self.sample_size = len(Y)
         
         for epoch in range(epochs):
@@ -128,11 +132,13 @@ class ann:
             self.costs.append(cost)
             gradients = self._backward_pass()
             
-            for key in self.params.keys():
-                self.params[key] = self.params[key] - learning_rate * gradients["d" + key]
+            self.params = self.optimizer.update(self.params, gradients,learning_rate,beta)  
             
             if epoch % 100 == 0 and not quiet:
-                print(f"Epoch: {epoch:3d}  |  Cost: {cost:.6f}")
+                if X_val is not None:
+                    yval_pred = self.predict(X_val)
+                    cost_val = .5 * np.sum( np.power(yval_pred - Y_val, 2) ) / len(Y_val)
+                print(f"Epoch: {epoch:3d}  |  Training Cost: {cost:.6f}   |   Validation Cost: {cost_val:.6f}")
 
             
     def predict(self, x):
@@ -152,10 +158,10 @@ class ann:
         values = [x]
         
         for l in range(self.num_layers):
-            v = self.params["W" + str(l+1)] @ values[l] + self.params["b" + str(l+1)].squeeze()
+            v = self.params["W" + str(l+1)].T @ values[l] + self.params["b" + str(l+1)]
             z = self.activation(v)
             values.append(z)
             
-        y = self.params["W" + str(self.num_layers+1)] @ z + self.params["b" + str(self.num_layers+1)].squeeze()
+        y = z.T @ self.params["W" + str(self.num_layers+1)] + self.params["b" + str(self.num_layers+1)]
         
         return y
